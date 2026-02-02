@@ -23,7 +23,7 @@ class ProxyListItem(QFrame):
     
     start_clicked = Signal(str)  # Emits proxy name
     stop_clicked = Signal(str)   # Emits proxy name
-    delete_clicked = Signal(str) # Emits proxy name
+    edit_clicked = Signal(str)   # Emits proxy name
     
     def __init__(self, name: str, listen_address: str, listen_port: int, parent=None):
         super().__init__(parent)
@@ -62,9 +62,9 @@ class ProxyListItem(QFrame):
         self.stop_btn.setEnabled(False)
         layout.addWidget(self.stop_btn)
         
-        self.delete_btn = QPushButton("Delete")
-        self.delete_btn.clicked.connect(lambda: self.delete_clicked.emit(self.proxy_name))
-        layout.addWidget(self.delete_btn)
+        self.edit_btn = QPushButton("Edit")
+        self.edit_btn.clicked.connect(lambda: self.edit_clicked.emit(self.proxy_name))
+        layout.addWidget(self.edit_btn)
     
     def set_status(self, status: ProxyStatus) -> None:
         """Update the status display."""
@@ -97,7 +97,7 @@ class ProxyListWidget(QWidget):
     
     proxy_started = Signal(str)  # Emits proxy name
     proxy_stopped = Signal(str)  # Emits proxy name
-    proxy_deleted = Signal(str)  # Emits proxy name
+    proxy_edited = Signal(str)   # Emits proxy name
     
     def __init__(self, config_service: ConfigService, proxy_runner: ProxyRunnerService | None = None, parent=None):
         super().__init__(parent)
@@ -123,7 +123,7 @@ class ProxyListWidget(QWidget):
             item = ProxyListItem(name, proxy.listen_address, proxy.listen_port, self)
             item.start_clicked.connect(self._on_start_proxy)
             item.stop_clicked.connect(self._on_stop_proxy)
-            item.delete_clicked.connect(self._on_delete_proxy)
+            item.edit_clicked.connect(self._on_edit_proxy)
             
             # Restore running status if proxy_runner is available
             if self.proxy_runner and self.proxy_runner.is_proxy_running(name):
@@ -152,6 +152,6 @@ class ProxyListWidget(QWidget):
         """Handle stop button click."""
         self.proxy_stopped.emit(name)
     
-    def _on_delete_proxy(self, name: str) -> None:
-        """Handle delete button click."""
-        self.proxy_deleted.emit(name)
+    def _on_edit_proxy(self, name: str) -> None:
+        """Handle edit button click."""
+        self.proxy_edited.emit(name)

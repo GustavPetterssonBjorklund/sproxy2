@@ -7,6 +7,7 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt
 
 from frontend.windows.new_proxy_dialog import NewProxyDialog
+from frontend.windows.edit_proxy_dialog import EditProxyDialog
 from frontend.widgets.proxy_list import ProxyListWidget, ProxyStatus
 from core.services.proxy_config_service import ConfigService
 from core.services.proxy_runner_service import ProxyRunnerService
@@ -32,7 +33,7 @@ class MainWindow(QWidget):
         
         # Header with add button
         header_layout = QVBoxLayout()
-        header_layout.addWidget(QLabel("<h2>SProxy2</h2>"))
+        header_layout.addWidget(QLabel("<h2>Simple Proxy 2</h2>"))
         
         new_proxy_btn = QPushButton("Add New Proxy")
         new_proxy_btn.clicked.connect(self._open_new_proxy_dialog)
@@ -48,7 +49,7 @@ class MainWindow(QWidget):
         self.proxy_list = ProxyListWidget(deps.config_service, deps.proxy_runner)
         self.proxy_list.proxy_started.connect(self._on_start_proxy)
         self.proxy_list.proxy_stopped.connect(self._on_stop_proxy)
-        self.proxy_list.proxy_deleted.connect(self._on_delete_proxy)
+        self.proxy_list.proxy_edited.connect(self._on_edit_proxy)
         
         scroll.setWidget(self.proxy_list)
         layout.addWidget(scroll)
@@ -76,26 +77,43 @@ class MainWindow(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to stop proxy: {e}")
     
-    def _on_delete_proxy(self, name: str) -> None:
-        """Handle proxy deletion request."""
-        reply = QMessageBox.question(
-            self,
-            "Delete Proxy",
-            f"Are you sure you want to delete proxy '{name}'?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
+    def _on_edit_proxy(self, name: str) -> None:
+        """Handle proxy edit request."""
+        proxy_config = self.deps.config_service.config.proxies.get(name)
+        if not proxy_config:
+            QMessageBox.warning(self, "Error", f"Proxy '{name}' not found")
+            return
         
-        if reply == QMessageBox.Yes:
+        dialog = EditProxyDialog(name, proxy_config, self)
+        if dialog.exec():
+            new_name, addr, listen_port, bind_port, proxy_type, run_on_startup, ssh_username = dialog.get_values()
             try:
-                self.deps.config_service.remove_proxy(name)
+                # If name changed, remove old and add new
+                if new_name != name:
+                    self.deps.config_service.remove_proxy(name)
+                    self.deps.config_service.add_proxy(
+                        new_name, addr, listen_port, bind_port,
+                        proxy_type=proxy_type,
+                        run_on_startup=run_on_startup,
+                        ssh_username=ssh_username
+                    )
+                else:
+                    # Update existing proxy
+                    self.deps.config_service.remove_proxy(name)
+                    self.deps.config_service.add_proxy(
+                        new_name, addr, listen_port, bind_port,
+                        proxy_type=proxy_type,
+                        run_on_startup=run_on_startup,
+                        ssh_username=ssh_username
+                    )
+                
                 self.proxy_list.refresh()
-                self.deps.tray_show_message("Success", f"Proxy '{name}' deleted")
+                self.deps.tray_show_message("Success", f"Proxy '{new_name}' updated successfully")
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to delete proxy: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to edit proxy: {e}")
 
     def _open_new_proxy_dialog(self):
-        dialog = NewProxyDialog(self)
+        dialog = NewProxyDialog(self.deps.config_service, self)
         if dialog.exec():
             name, addr, listen_port, bind_port, proxy_type, run_on_startup, ssh_username = dialog.get_values()
             try:

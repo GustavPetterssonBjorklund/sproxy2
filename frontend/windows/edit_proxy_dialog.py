@@ -1,52 +1,46 @@
-﻿from PySide6.QtWidgets import (
+from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout,
     QLineEdit, QSpinBox, QDialogButtonBox, QMessageBox, QComboBox, QCheckBox
 )
-from core.services.proxy_config_service import ConfigService
+from core.config.proxy_config_parser import ProxyConfig
 
 
-def _get_next_available_port(config_service: ConfigService, start_port: int = 1080) -> int:
-    """Find the next available port after start_port by checking used ports."""
-    used_ports = {proxy.listen_port for proxy in config_service.config.proxies.values()}
-    port = start_port
-    while port in used_ports and port < 65535:
-        port += 1
-    return port
-
-
-class NewProxyDialog(QDialog):
-    def __init__(self, config_service: ConfigService | None = None, parent=None):
+class EditProxyDialog(QDialog):
+    def __init__(self, proxy_name: str, proxy_config: ProxyConfig, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Add New Proxy")
+        self.setWindowTitle(f"Edit Proxy: {proxy_name}")
         self.setModal(True)
-        self.config_service = config_service
+        self.proxy_name = proxy_name
+        self.original_config = proxy_config
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
         self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("Proxy Name")
+        self.name_edit.setText(proxy_name)
 
-        self.listen_address_edit = QLineEdit("127.0.0.1")
+        self.listen_address_edit = QLineEdit()
+        self.listen_address_edit.setText(proxy_config.listen_address)
 
         self.listen_port_spin = QSpinBox()
         self.listen_port_spin.setRange(1, 65535)
-        self.listen_port_spin.setValue(22)
-
-        # Get next available port
-        next_port = _get_next_available_port(config_service) if config_service else 1080
+        self.listen_port_spin.setValue(proxy_config.listen_port)
 
         self.bind_port_spin = QSpinBox()
         self.bind_port_spin.setRange(1, 65535)
-        self.bind_port_spin.setValue(next_port)
+        self.bind_port_spin.setValue(proxy_config.bind_port)
 
         self.proxy_type_combo = QComboBox()
         self.proxy_type_combo.addItems(["socks5", "http"])
+        self.proxy_type_combo.setCurrentText(proxy_config.proxy_type)
 
         self.ssh_username_edit = QLineEdit()
+        if proxy_config.ssh_username:
+            self.ssh_username_edit.setText(proxy_config.ssh_username)
         self.ssh_username_edit.setPlaceholderText("Optional: SSH username for SOCKS5")
 
         self.run_on_startup_check = QCheckBox()
+        self.run_on_startup_check.setChecked(proxy_config.run_on_startup)
 
         form.addRow("Name:", self.name_edit)
         form.addRow("Listen Address:", self.listen_address_edit)
@@ -74,10 +68,10 @@ class NewProxyDialog(QDialog):
             QMessageBox.warning(self, "Invalid input", "Listen address is required.")
             return
 
-        # TODO: Check here for port collisions, fine for now but annoying UX
         self.accept()
 
     def get_values(self) -> tuple[str, str, int, int, str, bool, str | None]:
+        """Returns: (name, listen_address, listen_port, bind_port, proxy_type, run_on_startup, ssh_username)"""
         return (
             self.name_edit.text().strip(),
             self.listen_address_edit.text().strip(),
