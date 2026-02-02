@@ -7,15 +7,17 @@ from PySide6.QtGui import QIcon
 from PySide6.QtCore import Qt
 
 from frontend.windows.new_proxy_dialog import NewProxyDialog
-from frontend.widgets.proxy_list import ProxyListWidget
+from frontend.widgets.proxy_list import ProxyListWidget, ProxyStatus
 from core.services.proxy_config_service import ConfigService
+from core.services.proxy_runner_service import ProxyRunnerService
 
 @dataclass
 class MainWindowDependencies:
     icon: QIcon
     tray_show_message: Callable[[str, str], None]
     exit_service: Callable[[], None]
-    config_service: ConfigService             
+    config_service: ConfigService
+    proxy_runner: ProxyRunnerService             
 
 class MainWindow(QWidget):
     def __init__(self, deps: MainWindowDependencies):
@@ -43,7 +45,7 @@ class MainWindow(QWidget):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.NoFrame)
         
-        self.proxy_list = ProxyListWidget(deps.config_service)
+        self.proxy_list = ProxyListWidget(deps.config_service, deps.proxy_runner)
         self.proxy_list.proxy_started.connect(self._on_start_proxy)
         self.proxy_list.proxy_stopped.connect(self._on_stop_proxy)
         self.proxy_list.proxy_deleted.connect(self._on_delete_proxy)
@@ -53,14 +55,26 @@ class MainWindow(QWidget):
     
     def _on_start_proxy(self, name: str) -> None:
         """Handle proxy start request."""
-        # Disable start button
-        # TODO: Implement proxy start logic
-        self.deps.tray_show_message("Proxy Started", f"Started proxy '{name}'")
+        try:
+            proxy_config = self.deps.config_service.config.proxies.get(name)
+            if not proxy_config:
+                QMessageBox.warning(self, "Error", f"Proxy '{name}' not found")
+                return
+            
+            self.deps.proxy_runner.start_proxy(name, proxy_config)
+            self.proxy_list.set_proxy_status(name, ProxyStatus.RUNNING)
+            self.deps.tray_show_message("Proxy Started", f"Started proxy '{name}'")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to start proxy: {e}")
     
     def _on_stop_proxy(self, name: str) -> None:
         """Handle proxy stop request."""
-        # TODO: Implement proxy stop logic
-        self.deps.tray_show_message("Proxy Stopped", f"Stopped proxy '{name}'")
+        try:
+            self.deps.proxy_runner.stop_proxy(name)
+            self.proxy_list.set_proxy_status(name, ProxyStatus.STOPPED)
+            self.deps.tray_show_message("Proxy Stopped", f"Stopped proxy '{name}'")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to stop proxy: {e}")
     
     def _on_delete_proxy(self, name: str) -> None:
         """Handle proxy deletion request."""
@@ -83,9 +97,14 @@ class MainWindow(QWidget):
     def _open_new_proxy_dialog(self):
         dialog = NewProxyDialog(self)
         if dialog.exec():
-            name, addr, listen_port, bind_port = dialog.get_values()
+            name, addr, listen_port, bind_port, proxy_type, run_on_startup, ssh_username = dialog.get_values()
             try:
-                self.deps.config_service.add_proxy(name, addr, listen_port, bind_port)
+                self.deps.config_service.add_proxy(
+                    name, addr, listen_port, bind_port,
+                    proxy_type=proxy_type,
+                    run_on_startup=run_on_startup,
+                    ssh_username=ssh_username
+                )
                 self.proxy_list.refresh()  # Refresh the list
                 self.deps.tray_show_message("Success", f"Proxy '{name}' added successfully")
             except Exception as e:

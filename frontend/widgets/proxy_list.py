@@ -1,11 +1,14 @@
 from __future__ import annotations
 from enum import Enum
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
 from PySide6.QtCore import Qt, Signal
 
 from core.services.proxy_config_service import ConfigService
+
+if TYPE_CHECKING:
+    from core.services.proxy_runner_service import ProxyRunnerService
 
 
 class ProxyStatus(Enum):
@@ -96,9 +99,10 @@ class ProxyListWidget(QWidget):
     proxy_stopped = Signal(str)  # Emits proxy name
     proxy_deleted = Signal(str)  # Emits proxy name
     
-    def __init__(self, config_service: ConfigService, parent=None):
+    def __init__(self, config_service: ConfigService, proxy_runner: ProxyRunnerService | None = None, parent=None):
         super().__init__(parent)
         self.config_service = config_service
+        self.proxy_runner = proxy_runner
         self.proxy_items: dict[str, ProxyListItem] = {}
         
         self.layout = QVBoxLayout(self)
@@ -120,6 +124,10 @@ class ProxyListWidget(QWidget):
             item.start_clicked.connect(self._on_start_proxy)
             item.stop_clicked.connect(self._on_stop_proxy)
             item.delete_clicked.connect(self._on_delete_proxy)
+            
+            # Restore running status if proxy_runner is available
+            if self.proxy_runner and self.proxy_runner.is_proxy_running(name):
+                item.set_status(ProxyStatus.RUNNING)
             
             self.proxy_items[name] = item
             self.layout.addWidget(item)

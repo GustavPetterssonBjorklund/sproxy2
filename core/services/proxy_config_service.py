@@ -15,7 +15,16 @@ class ConfigService:
         """Get current config (read-only view)."""
         return self._config
     
-    def add_proxy(self, name: str, listen_address: str, listen_port: int, bind_port: int) -> None:
+    def add_proxy(
+        self,
+        name: str,
+        listen_address: str,
+        listen_port: int,
+        bind_port: int,
+        proxy_type: str = "socks5",
+        run_on_startup: bool = False,
+        ssh_username: str | None = None,
+    ) -> None:
         """Add a new proxy and persist to disk."""
         # Check if name already exists
         if name in self._config.proxies:
@@ -24,7 +33,10 @@ class ConfigService:
         new_proxy = ProxyConfig(
             listen_address=listen_address,
             listen_port=listen_port,
-            bind_port=bind_port
+            bind_port=bind_port,
+            proxy_type=proxy_type,
+            run_on_startup=run_on_startup,
+            ssh_username=ssh_username,
         )
         
         # Update in-memory config (immutable, so create new dict)

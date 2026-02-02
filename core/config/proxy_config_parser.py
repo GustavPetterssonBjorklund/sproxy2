@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from dataclasses import dataclass
 
+ProxyType = Literal["socks5", "http"]
 
 # Config structure
 @dataclass(frozen=True)
@@ -12,8 +13,9 @@ class ProxyConfig:
     listen_address: str
     listen_port: int
     bind_port: int
-    proxy_type: str = "socks5" | "socks4" | "http"
+    proxy_type: ProxyType
     run_on_startup: bool = False
+    ssh_username: str | None = None
 
 
 @dataclass(frozen=True)
@@ -36,6 +38,10 @@ def _as_int(v: Any, ctx: str) -> int:
         return int(v)
     raise ValueError(f"Expected integer in {ctx}, got {type(v).__name__}")
 
+def _as_proxy_type(v: Any, ctx: str) -> ProxyType:
+    if isinstance(v, str) and v in (ProxyType.__args__):
+        return v
+    raise ValueError(f"Expected proxy type ('socks5' or 'http') in {ctx}, got {v!r}")
 
 def _as_str(v: Any, ctx: str) -> str:
     if isinstance(v, str):
@@ -81,7 +87,10 @@ def load_config(path: Path) -> SProxy2Config:
         listen_address = _as_str(_require(tbl, "listen_address", ctx), f"{ctx}.listen_address")
         listen_port = _as_int(_require(tbl, "listen_port", ctx), f"{ctx}.listen_port")
         bind_port = _as_int(_require(tbl, "bind_port", ctx), f"{ctx}.bind_port")
+        proxy_type = _as_proxy_type(tbl.get("proxy_type", "socks5"), f"{ctx}.proxy_type")
         run_on_startup = bool(tbl.get("run_on_startup", False))
+        ssh_username_raw = tbl.get("ssh_username", None)
+        ssh_username = _as_str(ssh_username_raw, f"{ctx}.ssh_username") if ssh_username_raw is not None else None
 
         _check_port(listen_port, f"{ctx}.listen_port")
         _check_port(bind_port, f"{ctx}.bind_port")
@@ -90,7 +99,9 @@ def load_config(path: Path) -> SProxy2Config:
             listen_address=listen_address,
             listen_port=listen_port,
             bind_port=bind_port,
+            proxy_type=proxy_type,
             run_on_startup=run_on_startup,
+            ssh_username=ssh_username,
         )
 
     # Validate for duplicate endpoints
@@ -109,6 +120,9 @@ def write_default_config(path: Path) -> None:
                 listen_address="127.0.0.1",
                 listen_port=1080,
                 bind_port=10800,
+                proxy_type="socks5",
+                run_on_startup=False,
+                ssh_username=None,
             )
         }
     )
@@ -141,6 +155,11 @@ def dump_config(config: SProxy2Config) -> str:
         lines.append(f'listen_address = "{_toml_escape(proxy.listen_address)}"')
         lines.append(f"listen_port = {int(proxy.listen_port)}")
         lines.append(f"bind_port = {int(proxy.bind_port)}")
+        lines.append(f'proxy_type = "{proxy.proxy_type}"')
+        if proxy.ssh_username:
+            lines.append(f'ssh_username = "{_toml_escape(proxy.ssh_username)}"')
+        if proxy.run_on_startup:
+            lines.append("run_on_startup = true")
         lines.append("")
 
     return "\n".join(lines)

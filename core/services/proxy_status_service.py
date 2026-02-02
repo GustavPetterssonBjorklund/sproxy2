@@ -26,6 +26,8 @@ class ProxyStatusService:
                     listen_address=proxy_cfg.listen_address,
                     listen_port=proxy_cfg.listen_port,
                     bind_port=proxy_cfg.bind_port,
+                    proxy_type=proxy_cfg.proxy_type,
+                    run_on_startup=proxy_cfg.run_on_startup,
                 )
         
         # Remove deleted proxies

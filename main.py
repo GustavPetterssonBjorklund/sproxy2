@@ -1,5 +1,7 @@
 import sys
 import ctypes
+import asyncio
+import threading
 from pathlib import Path
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
     "com.yourname.yourapp"
@@ -10,6 +12,7 @@ from PySide6.QtGui import QIcon
 from frontend.windows.main_window import MainWindow, MainWindowDependencies
 from frontend.tray.tray_app import TrayApp, TrayDependencies
 from core.services.proxy_config_service import ConfigService
+from core.services.proxy_runner_service import ProxyRunnerService
 from core.config.proxy_config_parser import write_default_config
 
 def main():
@@ -24,6 +27,13 @@ def main():
         write_default_config(config_path)
     
     config_service = ConfigService(config_path)
+    proxy_runner = ProxyRunnerService()
+    
+    # Create and start asyncio event loop in a background thread
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+    proxy_runner.set_event_loop(loop)
     
     tray = TrayApp(TrayDependencies(
         app = app,
@@ -38,6 +48,7 @@ def main():
         tray_show_message=tray.show_message,
         exit_service=tray.exit_app,
         config_service=config_service,
+        proxy_runner=proxy_runner,
     ))
     win.hide()  # Start with the main window hidden
     
