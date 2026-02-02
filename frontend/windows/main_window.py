@@ -18,7 +18,7 @@ class MainWindowDependencies:
     tray_show_message: Callable[[str, str], None]
     exit_service: Callable[[], None]
     config_service: ConfigService
-    proxy_runner: ProxyRunnerService             
+    proxy_runner: ProxyRunnerService
 
 class MainWindow(QWidget):
     def __init__(self, deps: MainWindowDependencies):

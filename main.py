@@ -40,6 +40,7 @@ def main():
         icon = icon,
         main_window = None,  # Set after creating main window
         config_service = config_service,
+        proxy_runner = proxy_runner,
     ))
     
     # Create main window with tray callbacks
