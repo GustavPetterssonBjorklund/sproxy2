@@ -3,6 +3,15 @@
 
 $ErrorActionPreference = "Stop"
 
+# Check if running as admin
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $isAdmin) {
+    Write-Host "This script requires admin privileges. Requesting elevation..."
+    Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $MyInvocation.MyCommand.Path -Wait
+    exit
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $mainPath = Join-Path $scriptDir "main.py"
 
@@ -18,7 +27,7 @@ if (-not $pythonw) {
 }
 
 $taskName = "sproxy-tray"
-$action = New-ScheduledTaskAction -Execute $pythonw -Argument ""$mainPath"" -WorkingDirectory $scriptDir
+$action = New-ScheduledTaskAction -Execute $pythonw -Argument $mainPath -WorkingDirectory $scriptDir
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Hidden
