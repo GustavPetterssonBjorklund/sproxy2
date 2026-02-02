@@ -1,0 +1,7 @@
+# SProxy2 Configuration
+# Generated automatically
+
+[proxies.example]
+listen_address = "127.0.0.1"
+listen_port = 1080
+bind_port = 10800
