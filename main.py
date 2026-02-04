@@ -35,6 +35,14 @@ def main():
     thread.start()
     proxy_runner.set_event_loop(loop)
     
+    # Start proxies marked with run_on_startup
+    for proxy_name, proxy_config in config_service.config.proxies.items():
+        if proxy_config.run_on_startup:
+            try:
+                proxy_runner.start_proxy(proxy_name, proxy_config)
+            except Exception as e:
+                print(f"Warning: Failed to auto-start proxy '{proxy_name}': {e}")
+    
     tray = TrayApp(TrayDependencies(
         app = app,
         icon = icon,

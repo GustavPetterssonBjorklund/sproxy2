@@ -50,8 +50,8 @@ class NewProxyDialog(QDialog):
 
         form.addRow("Name:", self.name_edit)
         form.addRow("Listen Address:", self.listen_address_edit)
-        form.addRow("Expose Port:", self.listen_port_spin)
-        form.addRow("SSH Port:", self.bind_port_spin)
+        form.addRow("SSH Port:", self.listen_port_spin)
+        form.addRow("Bind Port:", self.bind_port_spin)
         form.addRow("Proxy Type:", self.proxy_type_combo)
         form.addRow("SSH Username:", self.ssh_username_edit)
         form.addRow("Run on Startup:", self.run_on_startup_check)

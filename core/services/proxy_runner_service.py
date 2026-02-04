@@ -56,15 +56,34 @@ class ProxyRunnerService:
 
         try:
             asyncio.run_coroutine_threadsafe(proxy.stop(), self._loop)
-            del self._running_proxies[name]
+            # Remove from running proxies immediately to update status
+            if name in self._running_proxies:
+                del self._running_proxies[name]
             logger.info(f"Stopped proxy '{name}'")
         except Exception as e:
             logger.error(f"Failed to stop proxy '{name}': {e}")
+            # Still remove from running proxies if stop fails
+            if name in self._running_proxies:
+                del self._running_proxies[name]
             raise
 
     def is_proxy_running(self, name: str) -> bool:
         """Check if a proxy is running."""
-        return name in self._running_proxies
+        proxy = self._running_proxies.get(name)
+        if not proxy:
+            return False
+        
+        # Check both the flag and if the task is still alive
+        if not proxy.is_running:
+            return False
+        
+        # Verify the task hasn't crashed
+        if proxy._task and proxy._task.done():
+            # Task finished, remove from running proxies
+            del self._running_proxies[name]
+            return False
+        
+        return True
 
     def get_running_proxies(self) -> list[str]:
         """Get list of running proxy names."""
